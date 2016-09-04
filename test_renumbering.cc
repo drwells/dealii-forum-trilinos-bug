@@ -1,30 +1,32 @@
-#include <deal.II/dofs/dof_handler.h>
-#include <deal.II/dofs/dof_tools.h>
-#include <deal.II/fe/fe.h>
-#include <deal.II/fe/fe_q.h>
-#include <deal.II/fe/fe_values.h>
-#include <deal.II/grid/tria.h>
-#include <deal.II/grid/grid_generator.h>
-#include <deal.II/distributed/tria.h>
-#include <deal.II/distributed/shared_tria.h>
-#include <deal.II/lac/constraint_matrix.h>
-#include <deal.II/lac/trilinos_solver.h>
-#include <deal.II/lac/trilinos_vector.h>
-#include <deal.II/lac/trilinos_sparse_matrix.h>
-#include <deal.II/numerics/vector_tools.h>
-#include <deal.II/numerics/matrix_tools.h>
-#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/base/quadrature_lib.h>
-#include <deal.II/dofs/dof_renumbering.h>
-#include <deal.II/lac/trilinos_precondition.h>
 
-#include <mpi.h>
+#include <deal.II/distributed/tria.h>
+#include <deal.II/distributed/shared_tria.h>
+
+#include <deal.II/dofs/dof_handler.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
+
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping_q1.h>
+
+#include <deal.II/grid/tria.h>
+#include <deal.II/grid/grid_generator.h>
+
+#include <deal.II/lac/constraint_matrix.h>
+#include <deal.II/lac/petsc_parallel_vector.h>
+#include <deal.II/lac/petsc_parallel_sparse_matrix.h>
+#include <deal.II/lac/petsc_precondition.h>
+#include <deal.II/lac/petsc_solver.h>
+#include <deal.II/lac/sparsity_tools.h>
 
 #include <vector>
 #include <iostream>
+#include <fstream>
 
 using namespace dealii;
 
@@ -36,7 +38,7 @@ private:
   const unsigned int rank;
   const unsigned int n_ranks;
 
-  parallel::shared::Triangulation<2> triangulation;
+  parallel::distributed::Triangulation<2> triangulation;
   FE_Q<2> fe;
   DoFHandler<2> dof_handler;
   QGauss<2> quadrature;
@@ -46,8 +48,8 @@ private:
   IndexSet locally_owned_dofs;
   IndexSet locally_relevant_dofs;
 
-  TrilinosWrappers::SparseMatrix system_matrix;
-  TrilinosWrappers::MPI::Vector system_rhs, solution;
+  PETScWrappers::MPI::SparseMatrix system_matrix;
+  PETScWrappers::MPI::Vector system_rhs, solution;
 
   ConditionalOStream pcout;
 
@@ -152,9 +154,8 @@ private:
     sparsity_pattern.print(deallog.get_file_stream());
     deallog << std::endl;
 
-    system_matrix.reinit (locally_owned_dofs,
-                          sparsity_pattern,
-                          MPI_COMM_WORLD);
+    system_matrix.reinit (locally_owned_dofs, locally_owned_dofs,
+                          sparsity_pattern, MPI_COMM_WORLD);
     const auto local_range = system_matrix.local_range();
     deallog << "sparse matrix row range: "
             << local_range.first
@@ -250,15 +251,10 @@ private:
     pcout << "fr(mat) = " << system_matrix.frobenius_norm() << std::endl;
     pcout << "l2(rhs) = " << system_rhs.l2_norm()    << std::endl;
 
-    // TODO:
-    // typedef TrilinosWrappers::SolverDirect SOLVER; // breaks!
-    typedef TrilinosWrappers::SolverCG SOLVER; // gives different results with 1 and 2 cores
+    PETScWrappers::PreconditionNone preconditioner(system_matrix);
 
-    TrilinosWrappers::PreconditionIdentity preconditioner;
-
-    SolverControl sc;
-    SOLVER::AdditionalData data;
-    SOLVER solver(sc, data);
+    SolverControl sc(100, 1e-10);
+    PETScWrappers::SolverCG solver(sc, MPI_COMM_WORLD);
 
     // solver.solve(system_matrix, solution, system_rhs);
     solver.solve(system_matrix, solution, system_rhs, preconditioner);
