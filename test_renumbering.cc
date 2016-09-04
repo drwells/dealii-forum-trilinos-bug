@@ -38,6 +38,8 @@ private:
   const unsigned int rank;
   const unsigned int n_ranks;
 
+  // PETSc (correctly) crashes when one uses parallel::shared::Triangulation
+  // here due to a renumbering bug with that class
   parallel::distributed::Triangulation<2> triangulation;
   FE_Q<2> fe;
   DoFHandler<2> dof_handler;
