@@ -1,6 +1,6 @@
 # Forum Trilinos Bug
 ## Overview
-This is a repository with test code for #dealii/dealii/2966: briefly, manually
+This is a repository with test code for dealii/dealii#2966: briefly, manually
 renumbering the degrees of freedom on a `parallel::shared::Triangulation<2>` has
 unexpected consequences. This shows up with two MPI processes: one is okay.
 
