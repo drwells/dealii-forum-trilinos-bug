@@ -274,7 +274,7 @@ private:
 
 int main(int argc, char *argv[])
 {
-  Utilities::MPI::MPI_InitFinalize mpi(argc, argv);
+  Utilities::MPI::MPI_InitFinalize mpi(argc, argv, /*max_num_threads=*/1);
 
   const auto rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
   std::ofstream logfile("debug_output_" + Utilities::to_string(rank));
