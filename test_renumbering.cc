@@ -155,13 +155,24 @@ private:
     system_matrix.reinit (locally_owned_dofs,
                           sparsity_pattern,
                           MPI_COMM_WORLD);
+
+    // This range is incorrect if we use the hand-rolled renumbering.
     const auto local_range = system_matrix.local_range();
     deallog << "sparse matrix row range: "
             << local_range.first
             << ", "
             << local_range.second
             << std::endl;
-    // This range is incorrect if we use the hand-rolled renumbering.
+
+    const auto domain_indices = system_matrix.locally_owned_domain_indices();
+    deallog << "domain indices (i.e., nonzero columns in the matrix): ";
+    domain_indices.print(deallog);
+    deallog << std::endl;
+
+    const auto range_indices = system_matrix.locally_owned_range_indices();
+    deallog << "range indices (i.e., nonzero rows in the matrix): ";
+    range_indices.print(deallog);
+    deallog << std::endl;
   }
 
   void assemble()
